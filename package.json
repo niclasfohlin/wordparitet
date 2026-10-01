@@ -1,0 +1,27 @@
+{
+  "name": "wordparitet",
+  "version": "0.1.0",
+  "description": "Word och Google Dokument: reglerna, regelprovet, mätbänken och jämförelserna, delade mellan niclasfohlin.se och metodriggen",
+  "type": "module",
+  "license": "UNLICENSED",
+  "private": true,
+  "exports": {
+    ".": { "types": "./index.d.ts", "default": "./src/index.js" },
+    "./regler": { "types": "./index.d.ts", "default": "./src/regler.js" },
+    "./google": { "types": "./index.d.ts", "default": "./src/google.js" },
+    "./word": { "types": "./index.d.ts", "default": "./src/word.js" },
+    "./jamfor": { "types": "./index.d.ts", "default": "./src/jamfor.js" },
+    "./bank": { "types": "./index.d.ts", "default": "./src/bank.js" },
+    "./bank/*": "./bank/*",
+    "./ps/*": "./ps/*"
+  },
+  "types": "./index.d.ts",
+  "bin": { "wordparitet": "./bin/wordparitet.js" },
+  "files": ["src", "bank", "ps", "bin", "index.d.ts", "REGLER.md", "CHANGELOG.md", "README.md"],
+  "engines": { "node": ">=22.12" },
+  "scripts": { "test": "node --test" },
+  "dependencies": { "jszip": "^3.10.1" },
+  "peerDependencies": { "docx": "^9.7.2", "sharp": ">=0.33" },
+  "peerDependenciesMeta": { "docx": { "optional": true }, "sharp": { "optional": true } },
+  "devDependencies": { "docx": "9.7.2" }
+}

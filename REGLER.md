@@ -1,0 +1,47 @@
+# Reglerna för Word och Google Dokument
+
+Läraren som sparar en Word-fil i Google Drive läser den i Google Dokument, som ritar samma fil med egna regler. Det som är rätt i Word är inte bevisat rätt i Google. Niclas 2026-09-30: "Du behöver lägga in något form av mekanik och script för att enkelt göra rimlig paritet mellan Word och drive", och handgrepp i efterhand duger inte. Niclas 2026-10-01: "Allt handgrepp efter ska jobbas bort steg för steg i din rigg tills Google och docx är väldigt nära varandra på en gång."
+
+Mekaniken har tre lager. Reglerna sitter i Word-byggarens gemensamma kod (byggstenarna), så att alla filer och nya former får dem av sig själva. Regelprovet (`provaWordfil`, `wordparitet regler`) stoppar ett bygge när en Word-fil ändå bryter en regel; det behöver varken Word, Google eller nätverk. Jämförelsen (`jamforWordGoogle`, `wordparitet google`) låter Word och Google rita samma fil och jämför sidorna före en uppladdning.
+
+Reglerna kommer ur mätningar i Word och Google Dokument (mätbänken, `bank/`) och ur sajtens sökning efter Googles datamodell (niclasfohlin.se, `underlag/prov/k138/sokning.md`). Kolumnen "Byggsten" säger var regeln sitter i sajtens `src/lib/metoddocx.ts` i dag; byggstenarna flyttar in i modulen i steg 2.
+
+| Regel | Varför | Byggsten | Mätt |
+|---|---|---|---|
+| Radavståndet är en multipel av typsnittets enkla rad, aldrig exakt eller minsta | Google läser `w:line` som en multipel, värdet delat med 240; exakt 500 twips blev flera rader luft. Enkelt radavstånd är lika högt i båda: Andika 1,611, Calibri 1,221, Arial 1,150 och Cinzel 1,348 gånger storleken; stycken utan angivet radavstånd är också lika | `radHojd`, `luft` | `radavstand`, `styckeavstand` |
+| En rad med satt höjd har ingen cellmarginal upptill, och nedtill bara kantens bildpunkter | Word lägger marginalerna ovanpå höjden (båda vid minsta höjd, den nedre vid exakt), Google räknar in dem: en protokollrad blev 53,5 pt i Word och 45,8 pt i Google. Höjden får marginalerna och luften ligger som stycken | `googleTabeller` | `radhojd` A–D |
+| Tabellens cellmarginaler och radhöjder står i hela bildpunkter (0,75 pt, 15 twips), och kantens skillnad ligger i den nedre marginalen | Google ritar cellmarginalen och en satt höjd avrundad till närmaste bildpunkt och kanten mellan två rader som närmaste antal hela bildpunkter, minst en; Word räknar allt exakt, och styckeavstånd ritar båda exakt. En protokollrad med 2 pt marginal och kant på 0,5 pt blev 17,9 pt i Word och 18,7 i Google, och en full sida spillde en rad. En exakt höjd räknar kanten i Word; där står kantens bildpunkter som nedre marginal, som Word lägger utanför höjden | `googleTabeller`, `radKant` | `radhojd` E–Q, `tabellrader` |
+| Ingen tabell i en cell i en rad med satt höjd | Google gör raden högre: vikkortet blev 3,42 cm mot 3,2, och kortens åttonde rad hamnade på en ny sida | stycken med tabbstopp (`ordMedPrickar`) | `radhojd` D |
+| En tabell i en cell har ett stycke på en punkt före och efter sig, och två tabeller i följd ett emellan | Google tillåter ingen tabell först eller sist i en cell eller direkt efter en annan och lägger där ett tomt stycke i normal storlek: en ruta blev 17 pt högre i Google och skrivraderna 29 pt. Med styckena på en punkt skiljer det 3 pt. Word räknar inte ett tomt stycke sist i cellen efter en tabell | `kringTabeller` | `radhojd` D |
+| Avsnittets sista stycke är en punkt högt, och dokumentet slutar aldrig med en tabell; ett avsnitt som börjar med en tabell börjar med ett stycke på en punkt | Google flyttar ett stycke i normal storlek till en ny sida när sidan är full och gör en tom sida, och en tabell först på sidan börjar 14 pt lägre i Google. En sida som fyller ytan helt i Word kan få en tom sida i Google för avsnittets sista stycke | `avsnittsStycke` | googleprov |
+| Bara typsnitt som finns i båda: Calibri, Andika, Consolas, Cambria Math, Arial, Cinzel och Cinzel Decorative, och bara tecken som är prövade | Google ritar andra typsnitt med ett reservtypsnitt med andra mått. Andika, Cinzel och Cinzel Decorative följer med i filen och finns i Googles bibliotek. Googles Calibri saknar □, → och ↑ och ritar dem i Arial, så bockrutan (□ i stället för ☐ i Segoe UI Symbol, som Google saknar) och pilen står i Arial i båda. Tecken som ritas med reservtypsnitt men inte gör raden högre står med sina skäl i `SARSKILDA`; ett nytt tecken stoppar tills det är prövat | `bockRun` | `radavstand` H, I |
+| Inget teckenavstånd | Google ignorerar det och ritar texten tätare, så att raderna bryts på andra ställen | | |
+| Bara heldragna, streckade och prickade kanter; en dubbel linje byggs av två enkla | Google ritar en dubbel kant som en enda linje på omkring 2 pt (boksidans ram, linjen under titeln och diplomets ram, Niclas 2026-10-01). Word ritar en dubbel kant med storleken sz som två linjer på sz med sz emellan. En dubbel ram är en tabell med en cell och enkel kant runt den inre tabellen, med 30 twips marginal runt om och ett stycke på 0,15 pt (radavstånd 30, styckemärket i 1 pt) före och efter den inre tabellen: dubbla linjer i båda, lika hög i Word som förut och 0,45 pt högre i Google. En dubbel linje under ett stycke är två stycken med var sin enkel kant, det andra med radavstånd 147 och 15 twips smalare på var sida, så att Word inte slår ihop dem; den blir 2,4 pt högre i Google. Ett tomt stycke efter en tabell sist i en cell räknar Word inte med, så luften nedtill är cellens marginal | `dubbelRam`, boksidans `titellinje` | `dubbellinje` M, E |
+| En kolumn i en tabell är minst så bred som sitt längsta ord | Annars bryter både Word och Google ordet mitt i, utan bindestreck ("Personbeskrivni/ng"). Ordets bredd räknas ur typsnittets egna mått, som är lika med det Word ritar; bredd flyttas bara när ett ord inte ryms, från kolumnerna med mest över | `rymOrden`, `teckenbredd.json` | googleprov |
+| Ett bråk som står ensamt är text i två stycken, ingen ekvation | Google tar ekvationens storlek från texten bredvid | `brakStycken` | |
+| Ingen flytande bild, ram, textruta, sidkant, dold text, avstavning eller procentbredd, och inga fält utom sidnummer och sidantal | Finns inte i Google Dokument | | |
+| Text högst 512 pt | Google Dokuments största storlek; text i 560 pt blev 512 i Google | | |
+| Exakt radhöjd på en tabellrad bara där formen kräver den, och innehållet ryms i raden med marginal | I Google blir en exakt rad en minsta höjd: det som Word klipper växer i Google och trycker ned sidan | | |
+
+## Det som inte är en skillnad mellan Word och Google
+
+- **Sidhuvud och sidfot på telefonen.** Word och Google Dokument visar sidhuvud och sidfot bara i utskriftslayout. I telefonens läsvy syns de inte, fast de finns i filen (Niclas 2026-10-01: "I utskriftslayout ser jag dem").
+- **Drive-knappen och Googles egen bild.** Drive sparar Word-filen som den är, och Google öppnar den i Office-läget; jämförelsen gör om filen till ett Google-dokument, som går att exportera. Drives egen bild av en okonverterad fil ritade bilderna likadant (2026-09-30), men att vägarna är lika i allt är inte bevisat.
+
+## Jämförelsen
+
+`jamforWordGoogle` gör för en Word-fil Words pdf (Word genom COM, `ps/word-pdf.ps1`) och Googles pdf (Drive-API:t) och jämför dem. Det som stoppar (NEJ): varje ställe där Word-filen själv börjar en ny sida (en sektion eller en sidbrytning före, ett sidankare) ska börja en sida också i Google, och blocket fram till nästa ankare får inte ta fler sidor i Google än i Word; ingen sida får vara tom i Google; inget tecken får saknas i Google (ekvationerna och rubrikrader som upprepas på fler sidor i den ena räknas inte); inget ord får brytas mitt i. Inne i ett block får den fria texten brytas annorlunda, och det blir obs med första sidan som skiljer sig: Word håller ihop en tabell vars rader har "håll ihop med nästa", Google delar den. Översiktsarket har Words sidor över Googles, par för par, och läses sida för sida. I en testmapp skriver en ny version över samma dokument med samma länk; ett dokument där läggs aldrig i papperskorgen.
+
+`wordJamfor` visar om en ändring i Word-koden ändrar hur Word ritar filerna: `wordFacit` före, `wordJamfor` efter, i text och i bild sida för sida.
+
+## Arbetsgången
+
+En fil som bara använder former som redan finns behöver inget eget: regelprovet i bygget och jämförelsen före uppladdningen räcker. En ny form (en ny sorts kort, tabell, rad eller linje) mäts först i mätbänken: kopiera det prov i `bank/` som liknar formen, byt varianterna och kör `wordparitet bank <prov>`. Det som skiljer blir
+
+1. en regel i `src/regler.js` med sitt skäl, om filen kan bryta den, och ett prov i `test/`,
+2. en byggsten som följer regeln (steg 2), och
+3. en rad i tabellen ovan, med provet som mätte den.
+
+Versionen höjs, och `CHANGELOG.md` säger på svenska vad som ändrades, varför och var det är mätt. Den som höjer versionen taggar och pushar och meddelar den andra riggen. Varje prov i bänken har sina uppmätta steg som `vantat`; bänken säger ÄNDRAT när ett steg skiljer mer än 0,1 pt, och `--facit` skriver in nya steg. Kör proven igen när docx eller Google byter version, så syns en regel som slutat gälla.
+
+Bara en Word-körning får gå åt gången: mätbänken, jämförelserna och mätningar i ett bygge startar och stänger Word var för sig, och två samtidiga stänger varandras Word (2026-09-30 kraschade tre prov så).

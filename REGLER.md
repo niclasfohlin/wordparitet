@@ -22,6 +22,7 @@ Reglerna kommer ur mätningar i Word och Google Dokument (mätbänken, `bank/`) 
 | Ingen flytande bild, ram, textruta, sidkant, dold text, avstavning eller procentbredd, och inga fält utom sidnummer och sidantal | Finns inte i Google Dokument | | |
 | Text högst 512 pt | Google Dokuments största storlek; text i 560 pt blev 512 i Google | | |
 | Exakt radhöjd på en tabellrad bara där formen kräver den, och innehållet ryms i raden med marginal | I Google blir en exakt rad en minsta höjd: det som Word klipper växer i Google och trycker ned sidan | | |
+| Ett stycke som hänger ihop med nästa (keepNext) står inte direkt före ett stycke med sidbrytning före | Google flyttar stycket med till den nya sidan och bryter sedan sidan igen, så att stycket står ensamt på en sida; Word bortser från att hålla ihop med en sidbrytning. Ramens text före veckorna i niclasfohlin.se, De fyra räknesätten i grupp, blev en egen sida i Google (2026-10-04) | sajtens `ramBarn`: ramens text utan keepNext när delarna börjar på ny sida | sajtens `googleprov.mjs` på planeringsmallarna före och efter: blocket tog två sidor i Google mot en, sedan en i båda |
 
 ## Det som inte är en skillnad mellan Word och Google
 

@@ -1,5 +1,9 @@
 # Ändringar
 
+## Ej utgivet
+
+- **Regeln om keepNext före en sidbrytning** (`REGLER.md`): ett stycke som hänger ihop med nästa står inte direkt före ett stycke med sidbrytning före, eftersom Google flyttar stycket till en egen sida. Från niclasfohlin.se 2026-10-04 (De fyra räknesätten i grupp, ramens text före veckorna), mätt med sajtens googleprov före och efter. Regelprovet prövar det inte ännu.
+
 ## 0.1.0 (2026-10-01)
 
 Första versionen, steg 1: kunskapen och proven, flyttade från niclasfohlin.se (Niclas 2026-10-01: "dela hela din kunskap och hur man jämför docx och drive ... som en modul eller liknande ni båda kan bygga ut och göra bättre").

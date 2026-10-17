@@ -60,11 +60,12 @@ const tecken = (text) => antal(text.normalize('NFC').toLowerCase().match(/[\p{L}
 const avkoda = (s) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
 
 // Texten i Word-filen: orden, ekvationernas tecken, tabellernas rubrikrader och sidhuvudets och sidfotens stycken.
-async function wordText(buf) {
+export async function wordText(buf) {
   const zip = await JSZip.loadAsync(buf);
   let text = '';
   let ekvationer = '';
   const rubrikrader = new Set();
+  const kortaRubriker = [];
   const sidhuvud = new Set();
   for (const d of Object.keys(zip.files).filter((n) => /^word\/(document|header\d*|footer\d*)\.xml$/.test(n))) {
     const xml = await zip.file(d).async('string');
@@ -73,12 +74,25 @@ async function wordText(buf) {
     // cellerna i tabellernas rubrikrader och styckena i sidhuvud och sidfot. Varje cell och stycke räknas för sig, och
     // sidhuvudets och sidfotens stycken delas vid tabben (adressen och, efter en tabb, Sida N av M).
     const texten = (x) => avkoda((x.match(/<w:t(?:\s[^>]*)?>[^<]*<\/w:t>/g) ?? []).map((t) => t.replace(/<[^>]+>/g, '')).join('')).normalize('NFC').toLowerCase();
-    const delar = /^word\/(header|footer)/.test(d) ? xml.split(/<\/w:p>|<w:tab\/>/) : [...xml.matchAll(/<w:tr><w:trPr>(?:(?!<\/w:trPr>).)*<w:tblHeader\b(?:(?!<\/w:trPr>).)*<\/w:trPr>((?:(?!<\/w:tr>).)*)<\/w:tr>/gs)].flatMap((m) => m[1].split(/<\/w:tc>/));
+    const bokst = (t) => (t.match(/\p{L}/gu) ?? []).join('');
+    const siffror = (t) => (t.match(/\p{N}/gu) ?? []).join('');
+    const rader = /^word\/(header|footer)/.test(d) ? [] : [...xml.matchAll(/<w:tr><w:trPr>(?:(?!<\/w:trPr>).)*<w:tblHeader\b(?:(?!<\/w:trPr>).)*<\/w:trPr>((?:(?!<\/w:tr>).)*)<\/w:tr>/gs)].map((m) => m[1].split(/<\/w:tc>/));
+    const delar = /^word\/(header|footer)/.test(d) ? xml.split(/<\/w:p>|<w:tab\/>/) : rader.flat();
     for (const x of delar) {
       const t = texten(x);
-      const b = (t.match(/\p{L}/gu) ?? []).join('');
-      if (b.length >= 4) rubrikrader.add(`${b}|${(t.match(/\p{N}/gu) ?? []).join('')}`);
+      const b = bokst(t);
+      if (b.length >= 4) rubrikrader.add(`${b}|${siffror(t)}`);
       if (b.length >= 4 && /^word\/(header|footer)/.test(d) && !/<w:instrText|<w:fldSimple/.test(x)) sidhuvud.add((t.match(/[\p{L}\p{N}]/gu) ?? []).join(''));
+    }
+    // En cell med färre än fyra bokstäver, som nivån Bas i en rubrikrad Vecka, Bas, Medel och Avancerad, är för kort att
+    // räknas för sig, eftersom samma bokstäver står inne i andra ord (tiobas). Den räknas med hela raden: står raden fler
+    // gånger i Word än i Google dras de korta cellernas tecken av så många gånger (niclasfohlin.se 2026-10-18, De fyra
+    // räknesätten i grupp, där Word upprepade raden på en sida mer och provet sa att ett b saknades i Google).
+    for (const celler of rader) {
+      const texter = celler.map(texten);
+      const korta = texter.filter((t) => bokst(t).length > 0 && bokst(t).length < 4);
+      const hela = bokst(texter.join(''));
+      if (korta.length && hela.length >= 4) kortaRubriker.push({ rad: hela, bokst: korta.map(bokst).join(''), siffror: korta.map(siffror).join('') });
     }
     text += ' ' + xml.replace(/<m:oMath\b[\s\S]*?<\/m:oMath>/g, ' ').replace(/<w:instrText\b[^>]*>[^<]*<\/w:instrText>/g, ' ')
       .replace(/<\/w:p>|<\/w:tc>|<w:tab\/>|<w:br\/>/g, ' ').replace(/<w:noBreakHyphen\/>/g, '-')
@@ -88,6 +102,7 @@ async function wordText(buf) {
     ord: new Set(ord(avkoda(text))),
     ekvationer: tecken(avkoda(ekvationer)),
     rubrikrader: [...rubrikrader].map((r) => { const [bokst, siffror] = r.split('|'); return { bokst, siffror }; }),
+    kortaRubriker,
     sidhuvud: [...sidhuvud].sort((a, b) => b.length - a.length),
   };
 }
@@ -99,16 +114,35 @@ function likhet(a, b) {
   for (const [, n] of b) summa += n;
   return summa ? (2 * gemensamt) / summa : 1;
 }
-// Ett ord som bryts mitt i utan bindestreck: en del som inte är ett ord i filen men blir det med nästa del. Bara ord på
-// minst sex bokstäver, som är de som bryts i en smal kolumn.
-function brutnaOrd(sidorna, iFilen) {
-  const t = ord(sidorna.join(' '));
+// Ett ord som bryts mitt i utan bindestreck: en del sist på en rad som inte är ett ord i filen men blir det med första
+// delen på nästa rad. Bara ord på minst sex bokstäver, som är de som bryts i en smal kolumn. Två delar på samma rad är
+// inget brutet ord: vikkorten i Ljudlek i grupp ritar ordet glest över ljudens prickar, och pdf:en läser det som
+// "parapl y" (niclasfohlin.se 2026-10-17, K-394; tidigare jämfördes alla ord i följd, också på samma rad).
+export function brutnaOrd(sidorna, iFilen) {
   const brutna = new Set();
-  for (let i = 0; i < t.length - 1; i++) {
-    const hel = t[i] + t[i + 1];
-    if (hel.length >= 6 && t[i].length > 1 && !iFilen.has(t[i]) && iFilen.has(hel)) brutna.add(hel);
+  for (const sida of sidorna) {
+    const rader = sida.split('\n').map((r) => ord(r)).filter((r) => r.length);
+    for (let i = 0; i < rader.length - 1; i++) {
+      const [forsta, andra] = [rader[i].at(-1), rader[i + 1][0]];
+      const hel = forsta + andra;
+      if (hel.length >= 6 && forsta.length > 1 && !iFilen.has(forsta) && iFilen.has(hel)) brutna.add(hel);
+    }
   }
   return brutna;
+}
+// Tecknen i Words pdf som saknas i Googles: bokstäver och siffror utan sidnumren. Det som upprepas per sida dras av så
+// många gånger som det står fler gånger i Word: rubrikradernas celler, och de korta cellerna med hela sin rad
+// (kortaRubriker i wordText). Ekvationerna räknas inte, eftersom Google ritar dem utan text i pdf:en. Svarar [tecken, antal].
+export function saknadeTecken(helW, helG, iFilen, sidnummer = SIDNUMMER) {
+  const utanSidnummer = (t) => t.replace(sidnummer, (m) => (m.startsWith('Sida') ? 'Sida av' : ''));
+  const iWord = tecken(utanSidnummer(helW));
+  const iGoogle = tecken(utanSidnummer(helG));
+  const bokstW = (helW.normalize('NFC').toLowerCase().match(/\p{L}/gu) ?? []).join('');
+  const bokstG = (helG.normalize('NFC').toLowerCase().match(/\p{L}/gu) ?? []).join('');
+  const drag = (extra, tecknen) => { if (extra > 0) for (const c of tecknen) iWord.set(c, (iWord.get(c) ?? 0) - extra); };
+  for (const rad of iFilen.rubrikrader) drag(forekomster(bokstW, rad.bokst) - forekomster(bokstG, rad.bokst), rad.bokst + rad.siffror);
+  for (const rad of iFilen.kortaRubriker ?? []) drag(forekomster(bokstW, rad.rad) - forekomster(bokstG, rad.rad), rad.bokst + rad.siffror);
+  return [...iWord].map(([c, n]) => [c, n - (iFilen.ekvationer.get(c) ?? 0) - (iGoogle.get(c) ?? 0)]).filter(([, d]) => d > 0);
 }
 // Sidankarna: de första bokstäverna efter varje ställe där Word-filen själv börjar en ny sida, en ny sektion eller ett
 // stycke med sidbrytning före. Ankaret tar bara text fram till nästa sådant ställe.
@@ -236,19 +270,8 @@ export async function jamforWordGoogle(fil, { ut, mappId, inloggning, igen = fal
   if (tomma.length) problem.push(`tom sida i Google ${tomma.join(', ')}`);
   if (w.length !== gs.length) obs.push(`Word ${w.length} sidor, Google ${gs.length}`);
   if (olika.length) obs.push(`${w.length === gs.length ? 'annan text på sidan' : 'första sidan som skiljer sig:'} ${(w.length === gs.length ? olika : olika.slice(0, 1)).join(', ')}`);
-  // Texten: bokstäver och siffror i Words pdf som saknas i Googles, utan sidnumren; det som upprepas per sida dras av så
-  // många gånger som det står fler gånger i Word, och ekvationerna räknas inte.
-  const [helW, helG] = [pdftext(wPdf), pdftext(gPdf)];
-  const utanSidnummer = (t) => t.replace(sidnummer, (m) => (m.startsWith('Sida') ? 'Sida av' : ''));
-  const iWord = tecken(utanSidnummer(helW));
-  const iGoogle = tecken(utanSidnummer(helG));
-  const bokstW = (helW.normalize('NFC').toLowerCase().match(/\p{L}/gu) ?? []).join('');
-  const bokstG = (helG.normalize('NFC').toLowerCase().match(/\p{L}/gu) ?? []).join('');
-  for (const rad of iFilen.rubrikrader) {
-    const extra = forekomster(bokstW, rad.bokst) - forekomster(bokstG, rad.bokst);
-    if (extra > 0) for (const c of rad.bokst + rad.siffror) iWord.set(c, (iWord.get(c) ?? 0) - extra);
-  }
-  const saknas = [...iWord].map(([c, n]) => [c, n - (iFilen.ekvationer.get(c) ?? 0) - (iGoogle.get(c) ?? 0)]).filter(([, d]) => d > 0);
+  // Texten: bokstäver och siffror i Words pdf som saknas i Googles (saknadeTecken).
+  const saknas = saknadeTecken(pdftext(wPdf), pdftext(gPdf), iFilen, sidnummer);
   if (saknas.length) problem.push(`saknas i Google: ${saknas.slice(0, 12).map(([c, d]) => `${c}${d > 1 ? ` ×${d}` : ''}`).join(' ')}${saknas.length > 12 ? ` och ${saknas.length - 12} till` : ''}`);
   const iW = brutnaOrd(sidtexter(wPdf, false), iFilen.ord);
   const iG = brutnaOrd(sidtexter(gPdf, false), iFilen.ord);

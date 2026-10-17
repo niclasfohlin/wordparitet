@@ -1,6 +1,12 @@
 # Ändringar
 
-## Ej utgivet
+## 0.2.0 (2026-10-18)
+
+- **Ordbrytningen** (`brutnaOrd` i `src/jamfor.js`): ett ord räknas som brutet bara när första delen står sist på en rad och andra delen först på nästa. Två delar på samma rad är ett glest ritat ord: vikkorten i Ljudlek i grupp ritar ordet över ljudens prickar, och pdf:en läser "parapl y", som stoppade sajtens Första ljudet två gånger (niclasfohlin.se 2026-10-17, sajtens K-394). Prövat i `test/jamfor.test.js` och med sajtens googleprov på Första ljudet, som nu går igenom.
+- **Texten som saknas** (`saknadeTecken`, utbruten ur `jamforWordGoogle`): en cell i en rubrikrad med färre än fyra bokstäver, som Bas i raden Vecka, Bas, Medel och Avancerad, räknas med hela raden. Står raden fler gånger i Word än i Google dras de korta cellernas tecken av, som de långa cellernas redan drogs av. Förut sa provet att ett b saknades i Google när Word upprepade raden på en sida mer (niclasfohlin.se 2026-10-18, De fyra räknesätten i grupp). Text som verkligen saknas syns som förut; proven i `test/jamfor.test.js` visar båda.
+- `wordText`, `brutnaOrd` och `saknadeTecken` exporteras ur `src/jamfor.js`, så att proven når dem utan Word och Google.
+
+Och det som var ej utgivet sedan 0.1.0:
 
 - **Word i telefonen, tabellcellerna** (`REGLER.md`): ett rutnät och andra mönster av många rutor ritas som en bild och inte som en tabell med en cell per ruta. Metodriggens fil med De fyra räknesätten i grupp gick från 7 331 tabellceller till 752 och blev i telefonen "snabbare och funkar direkt" (Niclas 2026-10-05). Från metodriggen 2026-10-05 (metodriggens 7d80262). Sajtens `rutnatBild` gör samma sak (7 454 till 890 celler) och ritar linjerna med crispEdges, så att en förstorad reservbild får jämna linjer. Regelprovet räknar inte cellerna ännu.
 - **Word i telefonen** (`REGLER.md`): Word för Android ritar ett inbäddat typsnitt först när det är inläst, så texten i elevens typsnitt syns efter en stund, längre i en stor fil. I typsnittet finns inget att rätta. Från niclasfohlin.se och metodriggen 2026-10-05, prövat av Niclas i telefonen med riggens `prov-typsnitt-mobil.docx` och sajtens fil.

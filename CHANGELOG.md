@@ -1,5 +1,9 @@
 # Ändringar
 
+## 0.3.1 (2026-10-19)
+
+- **Driften för ett block som Google packar tätare**: tar blocket färre sidor i Google än i Word räknas driften över sidgränsen, som ett negativt tal, och sparas. Förut sparades ingen drift för sådana block, och luftprovet skickade samma fem av niclasfohlin.se:s 63 filer till Google varje gång.
+
 ## 0.3.0 (2026-10-19)
 
 - **Luftprovet** (`luftprov` i `src/jamfor.js`, `src/luft.js`, kommandot `wordparitet luft`): avgör utan Google om blocken mellan sidankarna ryms i Google Dokument, ur luften på blockets sista sida i Words pdf och driften, det Google lägger till vid ett blocks slut. Standarddriften är mätt i niclasfohlin.se:s 63 Word-filer från 2026-10-19, 1 742 block (REGLER.md under Luftprovet). Niclas samma dag: "Borde inte du kunna bygga nu en enkel testmodul för Google testet som är mycket snabbare? ... En testmodul du och riggen kan dela?"

@@ -295,10 +295,15 @@ export async function jamforWordGoogle(fil, { ut, mappId, inloggning, igen = fal
   ankare.forEach((a, i) => {
     if (pw[i] < 0 || pg[i] < 0) return;
     const k = nasta(pw, i, w.length) - pw[i];
-    if (k <= 0 || nasta(pg, i, gs.length) - pg[i] !== k) return;
+    const kg = nasta(pg, i, gs.length) - pg[i];
+    // Ett block som tar fler sidor i Google har inte rymts, och det är jämförelsens NEJ. Tar det färre sidor slutar
+    // Google en eller flera sidor tidigare, och driften räknas över sidgränsen, som ett negativt tal: så mycket mindre
+    // plats tog Google (2026-10-19 gick fem av niclasfohlin.se:s filer annars till Google varje gång, fast Google
+    // packade deras block tätare).
+    if (k <= 0 || kg <= 0 || kg > k) return;
     const sw = wMatt[pw[i] + k - 1];
-    const sg = gMatt[pg[i] + k - 1];
-    if (sw && sg) drift.push({ ankare: a, k, luft: Math.round(sw.luft), drift: Math.round(sg.botten - sw.botten) });
+    const sg = gMatt[pg[i] + kg - 1];
+    if (sw && sg) drift.push({ ankare: a, k, luft: Math.round(sw.luft), drift: Math.round(sg.botten - sw.botten - (k - kg) * sw.hojd) });
   });
   writeFileSync(join(ut, `${namn}-drift.json`), `${JSON.stringify({ datum: new Date().toISOString().slice(0, 10), drift })}\n`);
   const tomma = [];

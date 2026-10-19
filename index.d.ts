@@ -91,6 +91,7 @@ export interface Sektion { b: number; h: number; botten: number; fot: number }
 export const DPI: number;
 export const STANDARDDRIFT: { 1: number; 2: number; fler: number };
 export const MARGINAL: number;
+export const LIKA_LUFT: number;
 export function standarddrift(k: number): number;
 export function sektioner(docx: Uint8Array): Promise<Sektion[]>;
 export function sidmatt(pdf: string, sekt: Sektion[]): Sidmatt[];

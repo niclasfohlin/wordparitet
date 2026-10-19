@@ -8,7 +8,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as docx from 'docx';
-import { bedom, block, MARGINAL, sektioner, sidmatt, standarddrift, STANDARDDRIFT } from '../src/luft.js';
+import { bedom, block, LIKA_LUFT, MARGINAL, sektioner, sidmatt, standarddrift, STANDARDDRIFT } from '../src/luft.js';
 
 const { Document, Packer, Paragraph } = docx;
 
@@ -29,6 +29,19 @@ test('uppmätt drift för samma ankare och längd går före standarddriften, oc
   assert.equal(bedom([b], [{ ankare: 'aaaaaaaa', k: 1, drift: 0 }]).lage, 'google');
   // Ett block som har blivit längre sedan mätningen får standarddriften för sin nya längd.
   assert.equal(bedom([{ ...b, k: 2, luft: 30 }], [{ ankare: 'aaaaaaaa', k: 1, drift: -2 }]).tranga[0].kalla, 'standard');
+});
+
+test('uppmätt drift gäller bara när blockets luft är nästan densamma som när den mättes', () => {
+  const b = { ankare: 'aaaaaaaa', fran: 0, k: 1, luft: 20 };
+  assert.equal(bedom([b], [{ ankare: 'aaaaaaaa', k: 1, luft: 20 + LIKA_LUFT, drift: 4 }]).lage, 'ryms');
+  // Innehållet har växt, som en tabell med fler rader: standarddriften gäller igen.
+  const r = bedom([b], [{ ankare: 'aaaaaaaa', k: 1, luft: 21 + LIKA_LUFT, drift: 4 }]);
+  assert.equal(r.lage, 'google');
+  assert.equal(r.tranga[0].kalla, 'standard');
+});
+
+test('ett lektionskort med 49 pt luft, som metodriggen såg välta i Google, går till Google utan uppmätt drift', () => {
+  assert.equal(bedom([{ ankare: 'lektionskortet', fran: 0, k: 1, luft: 49 }]).lage, 'google');
 });
 
 test('standarddriften efter blockets längd', () => {

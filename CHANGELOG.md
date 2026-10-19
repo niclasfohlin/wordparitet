@@ -1,5 +1,10 @@
 # Ändringar
 
+## 0.3.2 (2026-10-19)
+
+- **Standarddriften höjs** till 50 pt för block på en och två sidor och 24 för längre (`STANDARDDRIFT` i `src/luft.js`): metodriggen har sett lektionskort med 40 och 49 pt luft välta i Google, och sådana fel var lagade innan sajtens mätning gjordes. Ett block utan uppmätt drift behöver nu 56 pt luft.
+- **Uppmätt drift gäller bara när blocket har nästan samma luft som när den mättes**, högst 12 pt skillnad (`LIKA_LUFT`). Har innehållet växt, som med fler tabellrader, räknas standarddriften igen.
+
 ## 0.3.1 (2026-10-19)
 
 - **Driften för ett block som Google packar tätare**: tar blocket färre sidor i Google än i Word räknas driften över sidgränsen, som ett negativt tal, och sparas. Förut sparades ingen drift för sådana block, och luftprovet skickade samma fem av niclasfohlin.se:s 63 filer till Google varje gång.

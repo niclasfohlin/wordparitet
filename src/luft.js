@@ -17,11 +17,15 @@
 //
 // Det Google lägger till vid ett blocks slut (driften) mättes 2026-10-19 i niclasfohlin.se:s 63 Word-filer från samma
 // dag, 1 742 block: hälften högst 4 pt, 99 procent högst 20 pt, och som mest 32 pt för ett block på en sida, 50 för två
-// och 18 för fler. Inget block hade mindre luft än sin drift, och den minsta marginalen var 2 pt. Utan annat underlag
-// räknas driften därför som det största uppmätta för blockets längd (STANDARDDRIFT). Efter varje jämförelse med Google
-// sparar jamforWordGoogle blockens uppmätta drift i <ut>/<namn>-drift.json, och nästa luftprov av samma fil använder den
-// för block med samma ankare och längd. Så blir provet säkrare för varje jämförelse, och en fil som ändras lite går
-// igenom utan Google.
+// och 18 för fler. Inget block hade mindre luft än sin drift, och den minsta marginalen var 2 pt. Men metodriggen har sett
+// större: lektionskort med 40 och 49 pt luft blev två sidor i Google, och en lärarhandledning med 36 pt var på väg över
+// (riggens TILL-SAJTEN samma dag). De felen var lagade innan sajtens par gjordes, så de syns inte i mätningen. Utan annat
+// underlag räknas driften därför som 50 pt för ett block på en eller två sidor och 24 för längre (STANDARDDRIFT), så att
+// ett block behöver 56 pt luft. Efter varje jämförelse med Google sparar jamforWordGoogle blockens uppmätta drift i
+// <ut>/<namn>-drift.json, och nästa luftprov av samma fil använder den för block med samma ankare och längd, när
+// blockets luft är högst LIKA_LUFT pt annorlunda än när driften mättes. Har innehållet växt, som med fler rader i en
+// tabell, där Google avrundar varje rad, räknas standarddriften igen. Så blir provet säkrare för varje jämförelse, och en
+// fil som ändras lite går igenom utan Google.
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -32,8 +36,10 @@ export const DPI = 36;
 const PT = 72 / DPI;
 // En punkt är mörk under det här gråvärdet (0 svart, 255 vitt): text, linjer och bilder, inte en ljus bakgrundston.
 const MORK = 190;
-/** Det största Google lade till vid ett blocks slut, efter blockets längd i sidor (mätt 2026-10-19, se ovan). */
-export const STANDARDDRIFT = { 1: 32, 2: 50, fler: 18 };
+/** Driften för ett block utan uppmätt drift, efter blockets längd i sidor (2026-10-19, se ovan). */
+export const STANDARDDRIFT = { 1: 50, 2: 50, fler: 24 };
+/** Så mycket får blockets luft skilja från när driften mättes, i punkter, för att den uppmätta driften ska gälla. */
+export const LIKA_LUFT = 12;
 /** Så mycket luft ska finnas kvar när driften är dragen, i punkter. */
 export const MARGINAL = 6;
 export const standarddrift = (k) => STANDARDDRIFT[k] ?? STANDARDDRIFT.fler;
@@ -135,15 +141,17 @@ export function block(ankare, iWord, matt) {
 }
 
 /**
- * Är blocken tranga? drift är förra jämförelsens uppmätta drift ({ ankare, k, drift }, ur <namn>-drift.json); ett block
- * med samma ankare och längd får sin uppmätta drift, de andra STANDARDDRIFT. Svarar { lage: 'ryms' | 'google', tranga }
- * där tranga är blocken med för lite luft, med driften de räknades med och varifrån den kom.
+ * Är blocken trånga? drift är förra jämförelsens uppmätta drift ({ ankare, k, luft, drift }, ur <namn>-drift.json); ett
+ * block med samma ankare och längd och nästan samma luft (LIKA_LUFT) får sin uppmätta drift, de andra STANDARDDRIFT.
+ * Svarar { lage: 'ryms' | 'google', tranga } där tranga är de trånga blocken, med för lite luft, med driften de räknades
+ * med och varifrån den kom.
  */
 export function bedom(blocken, drift = [], { marginal = MARGINAL } = {}) {
-  const kand = new Map(drift.map((d) => [`${d.ankare}|${d.k}`, d.drift]));
+  const kand = new Map(drift.map((d) => [`${d.ankare}|${d.k}`, d]));
   const tranga = [];
   for (const b of blocken) {
-    const matt = kand.get(`${b.ankare}|${b.k}`);
+    const forut = kand.get(`${b.ankare}|${b.k}`);
+    const matt = forut && (forut.luft === undefined || Math.abs(forut.luft - b.luft) <= LIKA_LUFT) ? forut.drift : undefined;
     const d = matt ?? standarddrift(b.k);
     if (b.luft - (matt === undefined ? Math.max(d, 0) : d) < marginal) tranga.push({ ...b, drift: d, kalla: matt === undefined ? 'standard' : 'uppmätt' });
   }

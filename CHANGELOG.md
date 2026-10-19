@@ -1,5 +1,10 @@
 # Ändringar
 
+## Ej utgivet
+
+- **Ankarna i jämförelsen med Google** (`ankarsidor` i `src/jamfor.js`): ett ankare hittas överst på en sida uppifrån och ned (`-layout`) eller i läsordning. Uppifrån och ned skriver pdftotext en spalt i marginalen på samma rad som texten bredvid, så att en rubrik och styckets början kommer isär, och i Googles pdf kan marginalens rubrik stå först. I läsordning står de ihop i båda pdf:erna. En ungefärlig träff, nästan alla tecken i en annan ordning, godtas bara högst `NARA` (10) sidor från den sida där ankaret borde stå. Förut kunde en sådan träff långt fram ta sökningen förbi resten av ankarna: i metodriggens kompendium Faktatextsamtal i grupp (281 sidor, marginalens Ord i texten bredvid faktatexterna) hittades 82 av 141 ankare i Word, ett av dem på fel sida, och svaret blev NEJ fast Word och Google hade samma sidor. Nu hittas alla 141 i båda, på samma sidor, och svaret är ok. Temafilen Vulkaner och jordbävningar gick från NEJ till ok på samma sätt. Prövat med tre nya prov i `test/jamfor.test.js` och med 30 jämförelser som riggen hade sparade, gammal och ny version sida vid sida utan uppladdning: de 28 som var ok är ok, och de två falska nej är ok. Från metodriggen 2026-10-19.
+- `ankarsidor` och `NARA` exporteras ur `src/jamfor.js`, så att proven når dem utan Word och Google.
+
 ## 0.2.0 (2026-10-18)
 
 - **Ordbrytningen** (`brutnaOrd` i `src/jamfor.js`): ett ord räknas som brutet bara när första delen står sist på en rad och andra delen först på nästa. Två delar på samma rad är ett glest ritat ord: vikkorten i Ljudlek i grupp ritar ordet över ljudens prickar, och pdf:en läser "parapl y", som stoppade sajtens Första ljudet två gånger (niclasfohlin.se 2026-10-17, sajtens K-394). Prövat i `test/jamfor.test.js` och med sajtens googleprov på Första ljudet, som nu går igenom.

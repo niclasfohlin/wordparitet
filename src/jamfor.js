@@ -157,10 +157,19 @@ async function sidankare(buf) {
     return (text.normalize('NFC').toLowerCase().match(/[\p{L}\p{N}]/gu) ?? []).join('').slice(0, 48);
   }).filter((a) => a.length >= 8);
 }
-// Står samma text överst på flera sidor väljs i Google den sida som ligger närmast där ankaret borde stå. Ett ankare
-// står överst på en sida när sidans första tecken innehåller det, eller nästan alla dess tecken i en annan ordning.
-function ankarsidor(bokstaverna, ankare, iWord) {
+// Ett ankare står överst på en sida när sidans första tecken innehåller det, uppifrån och ned (-layout) eller i
+// läsordning, eller när de har nästan alla dess tecken i en annan ordning. Uppifrån och ned skriver pdftotext en spalt
+// i marginalen på samma rad som texten bredvid, så att en rubrik och styckets början kommer isär, och i Googles pdf
+// kan marginalens rubrik stå först. I läsordning står de ihop i båda pdf:erna (metodriggen 2026-10-19, faktatexterna
+// med marginalens Ord i texten). Nästan alla tecken prövas bara högst NARA sidor från den sida där ankaret borde stå:
+// en sådan träff långt fram tog sökningen förbi resten av ankarna, som då inte hittades i Word, och ett ankare som
+// Word hittade på fel sida gav nej (samma dag, kompendiet med 281 sidor). Står samma text överst på flera sidor väljs
+// i Google den sida som ligger närmast där ankaret borde stå. iWord är ankarnas sidor i Word, och lasordning sidornas
+// tecken i läsordning.
+export const NARA = 10;
+export function ankarsidor(bokstaverna, ankare, iWord, lasordning = []) {
   const bokst = bokstaverna.map((b) => b.slice(0, 130));
+  const iLasordning = lasordning.map((b) => b.slice(0, 130));
   const nastanAlla = (topp, a) => {
     const kvar = antal([...topp]);
     let traff = 0;
@@ -171,13 +180,16 @@ function ankarsidor(bokstaverna, ankare, iWord) {
   let p = 0;
   let forra = -1;
   ankare.forEach((a, i) => {
+    const forst = p + (i > 0 && a === ankare[i - 1] ? 1 : 0);
+    const medWord = Boolean(iWord) && iWord[i] >= 0;
+    const vantat = medWord ? (forra >= 0 ? ut[forra] + (iWord[i] - iWord[forra]) : iWord[i]) : forst;
     const kandidater = [];
-    for (let s = p + (i > 0 && a === ankare[i - 1] ? 1 : 0); s < bokst.length; s++) if (bokst[s].includes(a) || nastanAlla(bokst[s].slice(0, a.length + 20), a)) kandidater.push(s);
-    let hittad = kandidater[0] ?? -1;
-    if (iWord && iWord[i] >= 0 && kandidater.length > 1) {
-      const vantat = forra >= 0 ? ut[forra] + (iWord[i] - iWord[forra]) : iWord[i];
-      hittad = kandidater.reduce((b, s) => (Math.abs(s - vantat) < Math.abs(b - vantat) ? s : b));
+    for (let s = forst; s < bokst.length; s++) {
+      if (bokst[s].includes(a) || (iLasordning[s] ?? '').includes(a)) kandidater.push(s);
+      else if (Math.abs(s - vantat) <= NARA && nastanAlla(bokst[s].slice(0, a.length + 20), a)) kandidater.push(s);
     }
+    let hittad = kandidater[0] ?? -1;
+    if (medWord && kandidater.length > 1) hittad = kandidater.reduce((b, s) => (Math.abs(s - vantat) < Math.abs(b - vantat) ? s : b));
     ut.push(hittad);
     if (hittad >= 0) { p = hittad; if (!iWord || iWord[i] >= 0) forra = i; }
   });
@@ -237,15 +249,15 @@ export async function jamforWordGoogle(fil, { ut, mappId, inloggning, igen = fal
   const iFilen = await wordText(docx);
   const pdftext = (pdf, layout = true) => execFileSync('pdftotext', ['-enc', 'UTF-8', ...(layout ? ['-layout'] : []), pdf, '-'], { encoding: 'utf8', maxBuffer: 1 << 26 });
   const sidtexter = (pdf, layout) => pdftext(pdf, layout).split('\f').slice(0, -1).map((t) => t.replace(ram, ''));
-  const ankartexter = (pdf) => pdftext(pdf).split('\f').slice(0, -1).map((t) => iFilen.sidhuvud.reduce((b, h) => b.split(h).join(''), (t.replace(sidnummer, '').normalize('NFC').toLowerCase().match(/[\p{L}\p{N}]/gu) ?? []).join('')));
+  const ankartexter = (pdf, layout = true) => pdftext(pdf, layout).split('\f').slice(0, -1).map((t) => iFilen.sidhuvud.reduce((b, h) => b.split(h).join(''), (t.replace(sidnummer, '').normalize('NFC').toLowerCase().match(/[\p{L}\p{N}]/gu) ?? []).join('')));
   // Sidorna uppifrån och ned (-layout) för allt utom ordbrytningen, som läses i läsordning.
   const w = sidtexter(wPdf);
   const gs = sidtexter(gPdf);
   const problem = [];
   const obs = [];
   const ankare = await sidankare(docx);
-  const pw = ankarsidor(ankartexter(wPdf), ankare);
-  const pg = ankarsidor(ankartexter(gPdf), ankare, pw);
+  const pw = ankarsidor(ankartexter(wPdf), ankare, undefined, ankartexter(wPdf, false));
+  const pg = ankarsidor(ankartexter(gPdf), ankare, pw, ankartexter(gPdf, false));
   const nasta = (p, i, slut) => p.slice(i + 1).find((x) => x >= 0) ?? slut;
   const utanSida = [];
   const langre = [];

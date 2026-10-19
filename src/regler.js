@@ -24,6 +24,7 @@ export const SARSKILDA = {
   '−': 'minustecknet; Googles Calibri saknar det och ritar det i Arial, raden blir inte högre',
   '⁠': 'ordfogen efter tankstrecket i ett spann ("åk 4–9" hålls ihop); nollbred; Word ritar den med Segoe UI Symbol och Google med FreeSans',
   '‑': 'hårt bindestreck (w:noBreakHyphen) i sss-ooo-lll; Google ritar det med MS-PGothic',
+  '~': 'tildet, tecknet för Lyssnarens takt i Högläsning i par; Word och Google ritar det i textens eget typsnitt (Calibri, Calibri kursiv och Arial, pdfminer på pdf:erna 2026-10-19), raden blir inte högre',
 };
 // Tecken som inte ska stå i en Word-fil, med skälet. Ett undantag för en fil anges som { regel, fil, tecken, skal }.
 export const FORBJUDNA_TECKEN = {

@@ -1,5 +1,9 @@
 # Ändringar
 
+## 0.3.3 (2026-10-19)
+
+- **Tildet `~` är prövat** och står bland de särskilda tecknen (`SARSKILDA` i `src/regler.js`). Det är tecknet för Lyssnarens takt i metodriggens Högläsning i par, i kompendiet, lathunden och lektionskortet. pdfminer på Words och Googles pdf:er av niclasfohlin.se:s tre Word-filer och riggens kompendium: tildet står i samma typsnitt som texten runt det i båda, Calibri, Calibri kursiv och Arial, så raden blir inte högre. Förut stoppade regeln om tecken som inte är prövade filerna.
+
 ## 0.3.2 (2026-10-19)
 
 - **Standarddriften höjs** till 50 pt för block på en och två sidor och 24 för längre (`STANDARDDRIFT` i `src/luft.js`): metodriggen har sett lektionskort med 40 och 49 pt luft välta i Google, och sådana fel var lagade innan sajtens mätning gjordes. Ett block utan uppmätt drift behöver nu 56 pt luft.

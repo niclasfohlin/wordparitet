@@ -32,10 +32,15 @@ async function huvud(inloggning) {
   return { nyckel, auth: nycklar.get(nyckel) };
 }
 // Nyckeln gäller omkring en timme; svarar Google 401 hämtas en ny en gång (en lång körning med Word kan ta längre tid).
-async function anrop(url, init = {}, inloggning, igen = true) {
+// Ett tillfälligt fel hos Google (429 och 5xx) försöks igen efter en stund, högst tre gånger: niclasfohlin.se
+// 2026-10-19 svarade exporten 500 Internal Error för en av 63 filer, och samma fil gick igenom när den kördes om.
+const VANTA = [2000, 6000, 15000];
+const vila = (ms) => new Promise((r) => setTimeout(r, ms));
+async function anrop(url, init = {}, inloggning, igen = true, forsok = 0) {
   const { nyckel, auth } = await huvud(inloggning);
   const svar = await fetch(url, { ...init, headers: { ...auth, ...(init.headers ?? {}) } });
-  if (svar.status === 401 && igen) { nycklar.delete(nyckel); return anrop(url, init, inloggning, false); }
+  if (svar.status === 401 && igen) { nycklar.delete(nyckel); return anrop(url, init, inloggning, false, forsok); }
+  if ((svar.status === 429 || svar.status >= 500) && forsok < VANTA.length) { await svar.arrayBuffer().catch(() => {}); await vila(VANTA[forsok]); return anrop(url, init, inloggning, igen, forsok + 1); }
   if (!svar.ok) throw new Error(`${init.method ?? 'GET'} ${url.split('?')[0]} svarade ${svar.status}: ${(await svar.text()).replace(/\s+/g, ' ').slice(0, 300)}`);
   return svar;
 }

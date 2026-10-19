@@ -14,6 +14,10 @@
 // Skillnader i den fria texten inne i ett block blir obs, med första sidan som skiljer sig: Word håller ihop en tabell
 // vars rader har "håll ihop med nästa", Google delar den, så Google kan få färre sidor med samma innehåll. Ett
 // översiktsark med Words sidor över Googles läses sida för sida.
+//
+// Efter jämförelsen sparas blockens drift, hur mycket längre ned Googles sista sida i varje block slutar än Words, i
+// <ut>/<namn>-drift.json. Luftprovet (luftprov nedan, src/luft.js) läser den nästa gång samma fil prövas och avgör då
+// utan Google om filen ryms. jamforFlera jämför flera filer samtidigt.
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -21,6 +25,7 @@ import { basename, join } from 'node:path';
 import JSZip from 'jszip';
 import { googlePdf } from './google.js';
 import { wordPdf, wordPdfSync } from './word.js';
+import { bedom, block, sektioner, sidmatt } from './luft.js';
 
 const sharpen = async () => (await import('sharp')).default;
 const sha = (b) => createHash('sha256').update(b).digest('hex');
@@ -146,7 +151,7 @@ export function saknadeTecken(helW, helG, iFilen, sidnummer = SIDNUMMER) {
 }
 // Sidankarna: de första bokstäverna efter varje ställe där Word-filen själv börjar en ny sida, en ny sektion eller ett
 // stycke med sidbrytning före. Ankaret tar bara text fram till nästa sådant ställe.
-async function sidankare(buf) {
+export async function sidankare(buf) {
   const xml = await (await JSZip.loadAsync(buf)).file('word/document.xml').async('string');
   const starter = [0];
   for (const m of xml.matchAll(/<w:sectPr\b[\s\S]*?<\/w:sectPr><\/w:pPr><\/w:p>/g)) starter.push(m.index + m[0].length);
@@ -200,7 +205,7 @@ export function ankarsidor(bokstaverna, ankare, iWord, lasordning = []) {
 async function oversikt(wordPdfFil, googlePdfFil, ark, tmp) {
   const sharp = await sharpen();
   const bilder = async (pdf, prefix) => {
-    const mapp = join(tmp, `.sidor-${prefix}`);
+    const mapp = join(tmp, `.sidor-${prefix}-${basename(ark, '.png')}`);
     rmSync(mapp, { recursive: true, force: true });
     mkdirSync(mapp, { recursive: true });
     execFileSync('pdftoppm', ['-r', '20', '-png', pdf, join(mapp, 's')]);
@@ -219,14 +224,32 @@ async function oversikt(wordPdfFil, googlePdfFil, ark, tmp) {
   await sharp({ create: { width: k * cb, height: par * (2 * ch + 16), channels: 3, background: '#666666' } }).composite(lager).png().toFile(ark);
 }
 
+// Words pdf görs en åt gången: Word är ett program på datorn, och två körningar samtidigt stör varandra.
+let wordKo = Promise.resolve();
+const iTur = (fn) => { const p = wordKo.then(fn, fn); wordKo = p.catch(() => {}); return p; };
+// Words pdf av filen i ut/word/, efter innehållet, så att en oförändrad fil inte görs om; äldre versioner tas bort.
+async function wordPdfEfterInnehall(fil, namn, nyckel, ut) {
+  const wMapp = join(ut, 'word');
+  mkdirSync(wMapp, { recursive: true });
+  const wPdf = join(wMapp, `${namn}-${nyckel.slice(0, 16)}.pdf`);
+  if (existsSync(wPdf)) return wPdf;
+  for (const f of readdirSync(wMapp)) if (f.startsWith(`${namn}-`) && /^[0-9a-f]{16}\.pdf$/.test(f.slice(namn.length + 1))) rmSync(join(wMapp, f));
+  return iTur(() => wordPdf(fil, wPdf));
+}
+const pdftextAv = (pdf, layout = true) => execFileSync('pdftotext', ['-enc', 'UTF-8', ...(layout ? ['-layout'] : []), pdf, '-'], { encoding: 'utf8', maxBuffer: 1 << 26 });
+// Sidornas tecken för ankarna: utan sidnumret och sidhuvudets och sidfotens rader, uppifrån och ned eller i läsordning.
+const ankartexterAv = (pdf, iFilen, sidnummer, layout = true) => pdftextAv(pdf, layout).split('\f').slice(0, -1).map((t) => iFilen.sidhuvud.reduce((b, h) => b.split(h).join(''), (t.replace(sidnummer, '').normalize('NFC').toLowerCase().match(/[\p{L}\p{N}]/gu) ?? []).join('')));
+
 /**
  * Jämför hur Word och Google Dokument ritar Word-filen fil. ut är mappen för pdf:erna och översiktsarket; Words pdf
  * sparas efter innehållet i ut/word/. ram är det som står på varje sida och inte räknas som sidans text (sidnumren och
  * sidhuvudets och sidfotens rader), som ett reguljärt uttryck med flaggorna gm. Med igen jämförs den senast hämtade
  * Google-pdf:en en gång till, utan uppladdning, om den är gjord ur samma innehåll. sidor ger bilder av de sidorna.
- * Svarar { namn, lage: 'ok' | 'obs' | 'NEJ', problem, obs, beskrivning, ark, lank, provade, ankare, sidorWord, sidorGoogle, bilder }.
+ * wordPdf är Words pdf av just den här Word-filen, när den som anropar redan har den (som niclasfohlin.se:s validering);
+ * annars görs den, en åt gången.
+ * Svarar { namn, lage: 'ok' | 'obs' | 'NEJ', problem, obs, beskrivning, ark, lank, provade, ankare, sidorWord, sidorGoogle, bilder, drift }.
  */
-export async function jamforWordGoogle(fil, { ut, mappId, inloggning, igen = false, ram = SIDNUMMER, sidnummer = SIDNUMMER, sidor = [], visaAnkare = false } = {}) {
+export async function jamforWordGoogle(fil, { ut, mappId, inloggning, igen = false, ram = SIDNUMMER, sidnummer = SIDNUMMER, sidor = [], visaAnkare = false, wordPdf: befintlig } = {}) {
   if (!ut) throw new Error('jamforWordGoogle: ange ut, mappen för pdf:erna.');
   mkdirSync(join(ut, 'word'), { recursive: true });
   const namn = basename(fil, '.docx');
@@ -235,21 +258,14 @@ export async function jamforWordGoogle(fil, { ut, mappId, inloggning, igen = fal
   const gNyckel = `${gPdf}.nyckel`;
   const nyckel = await innehall(docx);
   const ateranvand = igen && existsSync(gPdf) && existsSync(gNyckel) && readFileSync(gNyckel, 'utf8') === nyckel;
-  // Words pdf efter innehållet, och äldre versioner av samma fil tas bort.
-  const wMapp = join(ut, 'word');
-  const wPdf = join(wMapp, `${namn}-${nyckel.slice(0, 16)}.pdf`);
-  const word = existsSync(wPdf) ? Promise.resolve(wPdf) : (async () => {
-    for (const f of readdirSync(wMapp)) if (f.startsWith(`${namn}-`) && /^[0-9a-f]{16}\.pdf$/.test(f.slice(namn.length + 1))) rmSync(join(wMapp, f));
-    return wordPdf(fil, wPdf);
-  })();
   // Word och Google arbetar samtidigt: Word på datorn, Google på nätet.
-  const [, g] = await Promise.all([word, ateranvand ? { pdf: readFileSync(gPdf) } : googlePdf(docx, { namn, mappId, inloggning })]);
+  const [wPdf, g] = await Promise.all([befintlig ?? wordPdfEfterInnehall(fil, namn, nyckel, ut), ateranvand ? { pdf: readFileSync(gPdf) } : googlePdf(docx, { namn, mappId, inloggning })]);
   writeFileSync(gPdf, g.pdf);
   writeFileSync(gNyckel, nyckel);
   const iFilen = await wordText(docx);
-  const pdftext = (pdf, layout = true) => execFileSync('pdftotext', ['-enc', 'UTF-8', ...(layout ? ['-layout'] : []), pdf, '-'], { encoding: 'utf8', maxBuffer: 1 << 26 });
+  const pdftext = pdftextAv;
   const sidtexter = (pdf, layout) => pdftext(pdf, layout).split('\f').slice(0, -1).map((t) => t.replace(ram, ''));
-  const ankartexter = (pdf, layout = true) => pdftext(pdf, layout).split('\f').slice(0, -1).map((t) => iFilen.sidhuvud.reduce((b, h) => b.split(h).join(''), (t.replace(sidnummer, '').normalize('NFC').toLowerCase().match(/[\p{L}\p{N}]/gu) ?? []).join('')));
+  const ankartexter = (pdf, layout = true) => ankartexterAv(pdf, iFilen, sidnummer, layout);
   // Sidorna uppifrån och ned (-layout) för allt utom ordbrytningen, som läses i läsordning.
   const w = sidtexter(wPdf);
   const gs = sidtexter(gPdf);
@@ -271,12 +287,29 @@ export async function jamforWordGoogle(fil, { ut, mappId, inloggning, igen = fal
   const ankarlista = visaAnkare ? ankare.map((a, i) => `ankare ${String(i + 1).padStart(2)}: Word s${pw[i] + 1}, Google s${pg[i] + 1}  ${a}`) : [];
   if (utanSida.length) problem.push(`börjar inte en sida i Google: ${utanSida.slice(0, 4).join(', ')}${utanSida.length > 4 ? ` och ${utanSida.length - 4} till` : ''}`);
   if (langre.length) problem.push(langre.slice(0, 4).join(', ') + (langre.length > 4 ? ` och ${langre.length - 4} till` : ''));
+  // Sidornas mått (src/luft.js): blockens drift till nästa luftprov, och vilka sidor som verkligen är tomma.
+  const sekt = await sektioner(docx);
+  const wMatt = sidmatt(wPdf, sekt);
+  const gMatt = sidmatt(gPdf, sekt);
+  const drift = [];
+  ankare.forEach((a, i) => {
+    if (pw[i] < 0 || pg[i] < 0) return;
+    const k = nasta(pw, i, w.length) - pw[i];
+    if (k <= 0 || nasta(pg, i, gs.length) - pg[i] !== k) return;
+    const sw = wMatt[pw[i] + k - 1];
+    const sg = gMatt[pg[i] + k - 1];
+    if (sw && sg) drift.push({ ankare: a, k, luft: Math.round(sw.luft), drift: Math.round(sg.botten - sw.botten) });
+  });
+  writeFileSync(join(ut, `${namn}-drift.json`), `${JSON.stringify({ datum: new Date().toISOString().slice(0, 10), drift })}\n`);
   const tomma = [];
   const olika = [];
   for (let s = 0; s < gs.length; s++) {
     const gb = bokstaver(gs[s]);
     const wb = bokstaver(w[s] ?? '');
-    if (gs[s].trim().length < 3 && (w[s] === undefined || w[s].trim().length >= 3)) tomma.push(s + 1);
+    // En sida utan text är tom bara när den inte heller har något annat i textytan: ett blad med bara en bild är inte tomt
+    // (niclasfohlin.se K-368: Googles sidor 11 och 13 i Gruppstärkande aktiviteter var bladen Lärarens skattning och Vår
+    // grupp, som Word har en sida senare).
+    if (gs[s].trim().length < 3 && (gMatt[s]?.tom ?? true) && (w[s] === undefined || w[s].trim().length >= 3)) tomma.push(s + 1);
     else if (w[s] !== undefined && likhet(wb, gb) < SIDLIKHET) olika.push(`${s + 1} (${Math.round(likhet(wb, gb) * 100)} %)`);
   }
   if (tomma.length) problem.push(`tom sida i Google ${tomma.join(', ')}`);
@@ -302,7 +335,54 @@ export async function jamforWordGoogle(fil, { ut, mappId, inloggning, igen = fal
   const lage = problem.length ? 'NEJ' : obs.length ? 'obs' : 'ok';
   const provade = pw.filter((p) => p >= 0).length;
   const beskrivning = [...problem, ...obs].join('; ') || `${w.length} sidor i Word och i Google, samma text på varje sida`;
-  return { namn, lage, problem, obs, beskrivning, ark, lank: g.lank, provade, ankare: ankare.length, ankarlista, sidorWord: w.length, sidorGoogle: gs.length, bilder, wordPdf: wPdf, googlePdf: gPdf };
+  return { namn, lage, problem, obs, beskrivning, ark, lank: g.lank, provade, ankare: ankare.length, ankarlista, sidorWord: w.length, sidorGoogle: gs.length, bilder, wordPdf: wPdf, googlePdf: gPdf, drift };
+}
+
+/**
+ * Flera Word-filer mot Google, högst samtidigt åt gången (förval 4): Google arbetar på nätet, och Word, som bara körs en
+ * åt gången, behövs inte när wordPdf ger Words pdf. wordPdf är då en funktion (fil) => sökväg eller undefined. vid
+ * anropas med varje svar när det är klart. Ett fel i en fil, som ett fel hos Google, blir ett NEJ för den filen och
+ * stoppar inte de andra. Svarar svaren i filernas ordning. De andra valen är jamforWordGoogle:s.
+ */
+export async function jamforFlera(filer, { samtidigt = 4, wordPdf, vid, ...o } = {}) {
+  const svar = new Array(filer.length);
+  let nasta = 0;
+  const arbeta = async () => {
+    while (nasta < filer.length) {
+      const i = nasta++;
+      try {
+        svar[i] = await jamforWordGoogle(filer[i], { ...o, wordPdf: typeof wordPdf === 'function' ? wordPdf(filer[i]) : undefined });
+      } catch (e) {
+        const text = String(e.message).replace(/\s+/g, ' ').slice(0, 240);
+        svar[i] = { namn: basename(filer[i], '.docx'), lage: 'NEJ', problem: [text], obs: [], beskrivning: text, fel: e };
+      }
+      vid?.(svar[i]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(samtidigt, filer.length)) }, arbeta));
+  return svar;
+}
+
+/**
+ * Luftprovet för en Word-fil, utan Google (src/luft.js): blocken mellan sidankarna och luften på deras sista sida i Words
+ * pdf, mot driften som förra jämförelsen med Google mätte (<ut>/<namn>-drift.json) eller standarddriften. wordPdf är
+ * Words pdf av just den här filen, när den som anropar har den; annars görs den i ut/word/. Svarar { namn, lage: 'ryms' |
+ * 'google', tranga, block, sidor, uppmatt, wordPdf }: ryms betyder att inget block är trångt, och filen behöver då inte
+ * jämföras med Google för blockens skull. Reglerna (provaWordfil) prövas för sig.
+ */
+export async function luftprov(fil, { ut, wordPdf: befintlig, sidnummer = SIDNUMMER, marginal } = {}) {
+  if (!ut) throw new Error('luftprov: ange ut, mappen där jämförelsernas drift sparas.');
+  const namn = basename(fil, '.docx');
+  const docx = readFileSync(fil);
+  const wPdf = befintlig ?? await wordPdfEfterInnehall(fil, namn, await innehall(docx), ut);
+  const iFilen = await wordText(docx);
+  const ankare = await sidankare(docx);
+  const pw = ankarsidor(ankartexterAv(wPdf, iFilen, sidnummer), ankare, undefined, ankartexterAv(wPdf, iFilen, sidnummer, false));
+  const matt = sidmatt(wPdf, await sektioner(docx));
+  const blocken = block(ankare, pw, matt);
+  const driftFil = join(ut, `${namn}-drift.json`);
+  const tidigare = existsSync(driftFil) ? JSON.parse(readFileSync(driftFil, 'utf8')).drift ?? [] : [];
+  return { namn, ...bedom(blocken, tidigare, marginal === undefined ? {} : { marginal }), block: blocken.length, sidor: matt.length, uppmatt: tidigare.length > 0, wordPdf: wPdf };
 }
 
 // ---------------------------------------------------------------- Word före och efter

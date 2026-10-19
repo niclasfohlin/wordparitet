@@ -10,7 +10,8 @@ Reglerna och arbetsgången står i [REGLER.md](REGLER.md), och vad som ändrats 
 |---|---|---|
 | `provaWordfil` (`src/regler.js`), `wordparitet regler` | Prövar en Word-fil mot reglerna och ger brotten, med undantag som har skäl | jszip |
 | `korBank` (`wordparitet/bank`), `wordparitet bank`, proven i `bank/` | Mätbänken: Word och Google ritar varianter av en form, och radstegen mäts i båda | docx, Word, Google, Poppler |
-| `jamforWordGoogle` (`src/jamfor.js`), `wordparitet google` | Jämför Words och Googles sidor av en Word-fil och ritar ett översiktsark | Word, Google, Poppler, sharp |
+| `jamforWordGoogle`, `jamforFlera` (`src/jamfor.js`), `wordparitet google` | Jämför Words och Googles sidor av en Word-fil och ritar ett översiktsark, flera filer samtidigt, och sparar blockens drift | Word (eller Words pdf), Google, Poppler, sharp |
+| `luftprov` (`src/jamfor.js`, `src/luft.js`), `wordparitet luft` | Ryms blocken i Google, utan Google? Luften på blockens sista sida i Words pdf mot driften (REGLER.md under Luftprovet) | Words pdf (eller Word), Poppler |
 | `wordFacit`, `wordJamfor` (`src/jamfor.js`) | Ändrar en ändring i koden hur Word ritar filen? Före och efter, i text och bild | Word, Poppler, sharp |
 | `googlePdf`, `testmappen` (`src/google.js`) | Google Dokuments pdf av en Word-fil, tillfälligt eller i en testmapp | Google |
 | `wordPdf` (`src/word.js`, `ps/word-pdf.ps1`) | Words pdf av en Word-fil | Windows med Word |
@@ -19,7 +20,7 @@ Byggstenarna (radavstånd, tabellrader i hela bildpunkter, stycken runt tabeller
 
 ## Så används den
 
-Sajten pekar på en tagg, så att Netlify får samma version som är prövad: `"wordparitet": "https://github.com/niclasfohlin/wordparitet/archive/refs/tags/v0.1.0.tar.gz"`. Riggen pekar på klonen bredvid sig: `"wordparitet": "file:../wordparitet"`.
+Sajten pekar på en tagg, så att Netlify får samma version som är prövad: `"wordparitet": "https://github.com/niclasfohlin/wordparitet/archive/refs/tags/v0.3.0.tar.gz"`. Riggen pekar på klonen bredvid sig: `"wordparitet": "file:../wordparitet"`.
 
 ```js
 import { provaWordfil, brottSomText } from 'wordparitet';

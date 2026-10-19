@@ -3,8 +3,10 @@
 //
 //   wordparitet regler <fil.docx> …                  regelprovet; stannar med kod 1 vid brott
 //   wordparitet bank <prov | fil.mjs> [--facit]      mätbänken i Word och Google (bank/<prov>.mjs)
-//   wordparitet google <fil.docx> … [--mapp <namn>] [--igen] [--sidor 1,21] [--ut <mapp>]
-//                                                    Word mot Google, med översiktsark
+//   wordparitet google <fil.docx> … [--mapp <namn>] [--igen] [--sidor 1,21] [--ut <mapp>] [--samtidigt 4]
+//                                                    Word mot Google, med översiktsark, flera filer åt gången
+//   wordparitet luft <fil.docx> … [--ut <mapp>]      luftprovet: ryms blocken i Google, utan Google? Kod 2 när en fil
+//                                                    behöver jämföras med Google (README.md under Luftprovet)
 //
 // Google-inloggningen anges med miljövariabeln WORDPARITET_GOOGLE (sökvägen till en modul med token()).
 import { existsSync, readFileSync } from 'node:fs';
@@ -13,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 
 const [kommando, ...args] = process.argv.slice(2);
 const flagga = (n) => (args.includes(n) ? args[args.indexOf(n) + 1] : undefined);
-const filer = args.filter((a, i) => !a.startsWith('--') && !(i > 0 && ['--mapp', '--sidor', '--ut'].includes(args[i - 1])));
+const filer = args.filter((a, i) => !a.startsWith('--') && !(i > 0 && ['--mapp', '--sidor', '--ut', '--samtidigt'].includes(args[i - 1])));
 
 if (kommando === 'regler') {
   const { provaWordfil, brottSomText } = await import('../src/regler.js');
@@ -34,20 +36,33 @@ if (kommando === 'regler') {
   if (bild) console.log(`\nWord till vänster, Google till höger: ${bild}`);
   if (andrade && !args.includes('--facit')) { console.error(`\nmätbänken: ${andrade} varianter mäter annorlunda än provets vantat. Läs om regeln fortfarande gäller; --facit skriver de nya stegen.`); process.exit(1); }
 } else if (kommando === 'google') {
-  const { jamforWordGoogle } = await import('../src/jamfor.js');
+  const { jamforFlera } = await import('../src/jamfor.js');
   const { testmappen } = await import('../src/google.js');
   const ut = resolve(flagga('--ut') ?? 'wordparitet-google');
   const mappId = flagga('--mapp') ? await testmappen(flagga('--mapp')) : undefined;
   const sidor = flagga('--sidor') ? flagga('--sidor').split(',').map(Number) : [];
   let fel = 0;
-  for (const fil of filer) {
-    const r = await jamforWordGoogle(fil, { ut, mappId, igen: args.includes('--igen'), sidor });
-    if (r.lage === 'NEJ') fel++;
-    console.log(`${r.lage.padEnd(3)}  ${r.namn}: ${r.beskrivning}`);
-    console.log(`     översikt (Word över Google): ${r.ark}${r.lank && mappId ? `\n     i testmappen: ${r.lank}` : ''}`);
-  }
+  await jamforFlera(filer, {
+    ut, mappId, igen: args.includes('--igen'), sidor, samtidigt: Number(flagga('--samtidigt') ?? 4),
+    vid: (r) => {
+      if (r.lage === 'NEJ') fel++;
+      console.log(`${r.lage.padEnd(3)}  ${r.namn}: ${r.beskrivning}`);
+      if (r.ark) console.log(`     översikt (Word över Google): ${r.ark}${r.lank && mappId ? `\n     i testmappen: ${r.lank}` : ''}`);
+    },
+  });
   if (fel) process.exit(1);
+} else if (kommando === 'luft') {
+  const { luftprov } = await import('../src/jamfor.js');
+  const ut = resolve(flagga('--ut') ?? 'wordparitet-google');
+  let google = 0;
+  for (const fil of filer) {
+    const r = await luftprov(fil, { ut });
+    if (r.lage === 'google') google++;
+    const forsta = r.tranga[0];
+    console.log(`${r.lage === 'ryms' ? 'ryms  ' : 'google'}  ${r.namn}: ${r.block} block på ${r.sidor} sidor${r.uppmatt ? ', med uppmätt drift' : ''}${forsta ? `; ${r.tranga.length} trånga, först "${forsta.ankare.slice(0, 24)}…" (Words sida ${forsta.fran + forsta.k}) med ${forsta.luft} pt luft mot ${forsta.drift} pt drift` : ''}`);
+  }
+  if (google) process.exit(2);
 } else {
-  console.error('Kommandon: regler <fil.docx> …, bank <prov> [--facit], google <fil.docx> … [--mapp <namn>]. Se README.md.');
+  console.error('Kommandon: regler <fil.docx> …, bank <prov> [--facit], google <fil.docx> … [--mapp <namn>], luft <fil.docx> …. Se README.md.');
   process.exit(1);
 }

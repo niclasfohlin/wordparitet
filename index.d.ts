@@ -62,8 +62,10 @@ export interface Jamforelse {
   bilder: { sida: number; vem: 'word' | 'google'; fil: string }[];
   wordPdf: string;
   googlePdf: string;
+  /** Blockens drift: hur mycket längre ned Googles sista sida i blocket slutar än Words, i punkter. Sparas också i <ut>/<namn>-drift.json. */
+  drift: Drift[];
 }
-export function jamforWordGoogle(fil: string, o: {
+export interface JamforVal {
   ut: string;
   mappId?: string;
   inloggning?: Inloggning;
@@ -73,7 +75,28 @@ export function jamforWordGoogle(fil: string, o: {
   sidnummer?: RegExp;
   sidor?: number[];
   visaAnkare?: boolean;
-}): Promise<Jamforelse>;
+  /** Words pdf av just den här Word-filen, när den som anropar redan har den. */
+  wordPdf?: string;
+}
+export function jamforWordGoogle(fil: string, o: JamforVal): Promise<Jamforelse>;
+/** Flera Word-filer mot Google, högst samtidigt åt gången (förval 4); wordPdf ger Words pdf per fil. */
+export function jamforFlera(filer: string[], o: Omit<JamforVal, 'wordPdf'> & { samtidigt?: number; wordPdf?: (fil: string) => string | undefined; vid?: (svar: Jamforelse) => void }): Promise<Jamforelse[]>;
+export function sidankare(buf: Uint8Array): Promise<string[]>;
+
+/** Luftprovet (src/luft.js). */
+export interface Drift { ankare: string; k: number; luft: number; drift: number }
+export interface Block { ankare: string; fran: number; k: number; luft: number }
+export interface Sidmatt { hojd: number; botten: number; textBotten: number; luft: number; tom: boolean }
+export interface Sektion { b: number; h: number; botten: number; fot: number }
+export const DPI: number;
+export const STANDARDDRIFT: { 1: number; 2: number; fler: number };
+export const MARGINAL: number;
+export function standarddrift(k: number): number;
+export function sektioner(docx: Uint8Array): Promise<Sektion[]>;
+export function sidmatt(pdf: string, sekt: Sektion[]): Sidmatt[];
+export function block(ankare: string[], iWord: number[], matt: Sidmatt[]): Block[];
+export function bedom(blocken: Block[], drift?: Drift[], o?: { marginal?: number }): { lage: 'ryms' | 'google'; tranga: (Block & { drift: number; kalla: 'standard' | 'uppmätt' })[] };
+export function luftprov(fil: string, o: { ut: string; wordPdf?: string; sidnummer?: RegExp; marginal?: number }): Promise<{ namn: string; lage: 'ryms' | 'google'; tranga: (Block & { drift: number; kalla: 'standard' | 'uppmätt' })[]; block: number; sidor: number; uppmatt: boolean; wordPdf: string }>;
 export function wordFacit(fil: string, facitMapp: string): number;
 export function wordJamfor(fil: string, o: { facitMapp: string; nuMapp: string; bildMapp: string; byten?: [string, string][] }): Promise<{ lage: 'ok' | 'NEJ' | '?'; delar: string[]; sidor: number }>;
 

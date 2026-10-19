@@ -43,9 +43,23 @@ Microsoft räknar bara upp Word för Windows och Mac bland apparna som bäddar i
 
 `wordJamfor` visar om en ändring i Word-koden ändrar hur Word ritar filerna: `wordFacit` före, `wordJamfor` efter, i text och i bild sida för sida.
 
+En sida i Google räknas som tom bara när den varken har text eller något annat i textytan: ett blad med bara en bild är inte tomt (niclasfohlin.se K-368, Gruppstärkande aktiviteter 2026-10-16, där Googles sidor 11 och 13 var bladen som Word har en sida senare). Ett tillfälligt fel hos Google, 429 eller 5xx, försöks igen högst tre gånger efter 2, 6 och 15 sekunder (2026-10-19 svarade exporten 500 för en av 63 filer, och filen gick igenom när den kördes om). `jamforFlera` jämför flera filer samtidigt, förval fyra; Word körs ändå en åt gången, och behövs inte alls när den som anropar ger Words pdf (`wordPdf`).
+
+## Luftprovet
+
+Niclas 2026-10-19: "Borde inte du kunna bygga nu en enkel testmodul för Google testet som är mycket snabbare? ... En testmodul du och riggen kan dela?" Exakt hur Google ritar går inte att räkna ut, eftersom var en rad bryts avgörs av bråkdelar av en punkt i en sidmotor som inte är öppen. Men det jämförelsen stoppar för, utöver reglerna, är nästan alltid ett block som inte ryms, och det går att förutsäga ur Words pdf. `luftprov` (`src/luft.js`, kommandot `wordparitet luft`) mäter luften nederst på varje blocks sista sida i Words pdf och jämför den med det Google lägger till vid ett blocks slut, driften. Ryms alla block med marginal behöver filen inte jämföras med Google för blockens skull; reglerna prövas för sig.
+
+| Del | Så |
+|---|---|
+| Luften | Sidan ritas i 36 dpi i gråskala (pdftoppm). Innehållets nederkant är den lägsta raden med mörka punkter ovanför sidfoten. Textytans nederkant är sidans höjd minus den nedre marginalen, ur den sektion i Word-filen som har sidans storlek och vars sidfotsavstånd stämmer med var sidfoten står; en fil kan ha flera marginaler på samma sidstorlek (69 av niclasfohlin.se:s 240 Word-filer) |
+| Driften | Hur mycket längre ned Googles sista sida i blocket slutar än Words. Mätt 2026-10-19 i niclasfohlin.se:s 63 Word-filer från samma dag, 1 742 block: hälften högst 4 pt, 99 procent högst 20 pt, och som mest 32 pt för ett block på en sida, 50 för två och 18 för fler (`STANDARDDRIFT`). Inget block hade mindre luft än sin drift; den minsta marginalen var 2 pt. Mätt mot den fullaste sidan i stället för mot marginalen gav samma block upp till 22 pt för lite luft utan att något välte, så textytan måste läsas ur Word-filen |
+| Bedömningen | Ett block är trångt när luften minus driften är mindre än marginalen, 6 pt (`MARGINAL`). Driften är den uppmätta för blocket i förra jämförelsen av samma fil, när ankaret och antalet sidor är desamma, annars standarddriften |
+| Lärandet | `jamforWordGoogle` sparar blockens drift i `<ut>/<namn>-drift.json` efter varje jämförelse. Nästa luftprov av samma fil läser den. Första gången räknas standarddriften, så en ny fil går nästan alltid till Google, och sedan går en fil som ändras lite igenom utan Google. 2026-10-19 rymdes 47 av niclasfohlin.se:s 63 ändrade filer med uppmätt drift, och luftprovet tog omkring en och en halv sekund per fil |
+| Det provet inte ser | Annan text på en sida inne i ett block (obs i jämförelsen), och det reglerna prövar: tecknen, typsnitten och ordens bredd. Hela jämförelsen med Google görs därför vid en ny form, vid större ändringar och då och då som stickprov, och varje sådan jämförelse gör driften säkrare |
+
 ## Arbetsgången
 
-En fil som bara använder former som redan finns behöver inget eget: regelprovet i bygget och jämförelsen före uppladdningen räcker. En ny form (en ny sorts kort, tabell, rad eller linje) mäts först i mätbänken: kopiera det prov i `bank/` som liknar formen, byt varianterna och kör `wordparitet bank <prov>`. Det som skiljer blir
+En fil som bara använder former som redan finns behöver inget eget: regelprovet i bygget, luftprovet och jämförelsen med Google för de filer som luftprovet säger inte ryms räcker. En ny form (en ny sorts kort, tabell, rad eller linje) mäts först i mätbänken: kopiera det prov i `bank/` som liknar formen, byt varianterna och kör `wordparitet bank <prov>`. Det som skiljer blir
 
 1. en regel i `src/regler.js` med sitt skäl, om filen kan bryta den, och ett prov i `test/`,
 2. en byggsten som följer regeln (steg 2), och

@@ -3,4 +3,5 @@
 export { REGLER, TYPSNITT, VANLIGA, SARSKILDA, FORBJUDNA_TECKEN, kantensBildpunkter, provaWordfil, brottSomText, utdrag } from './regler.js';
 export { googlePdf, testmappen } from './google.js';
 export { wordPdf, wordPdfSync, WORD_PDF_SKRIPT } from './word.js';
-export { SIDNUMMER, innehall, jamforWordGoogle, wordFacit, wordJamfor } from './jamfor.js';
+export { SIDNUMMER, innehall, jamforWordGoogle, jamforFlera, luftprov, sidankare, wordFacit, wordJamfor } from './jamfor.js';
+export { DPI, STANDARDDRIFT, MARGINAL, standarddrift, sektioner, sidmatt, block, bedom } from './luft.js';

@@ -1,6 +1,16 @@
 # Ändringar
 
-## Ej utgivet
+## 0.3.0 (2026-10-19)
+
+- **Luftprovet** (`luftprov` i `src/jamfor.js`, `src/luft.js`, kommandot `wordparitet luft`): avgör utan Google om blocken mellan sidankarna ryms i Google Dokument, ur luften på blockets sista sida i Words pdf och driften, det Google lägger till vid ett blocks slut. Standarddriften är mätt i niclasfohlin.se:s 63 Word-filer från 2026-10-19, 1 742 block (REGLER.md under Luftprovet). Niclas samma dag: "Borde inte du kunna bygga nu en enkel testmodul för Google testet som är mycket snabbare? ... En testmodul du och riggen kan dela?"
+- **Driften sparas** efter varje jämförelse i `<ut>/<namn>-drift.json`, och `jamforWordGoogle` svarar den som `drift`. Nästa luftprov av samma fil använder den.
+- **Words pdf kan ges in** (`wordPdf` i `jamforWordGoogle` och `luftprov`), så att den som redan har den, som niclasfohlin.se:s validering, slipper Word. Word körs annars en åt gången.
+- **Flera filer samtidigt** (`jamforFlera`, `wordparitet google --samtidigt 4`): ett fel i en fil blir ett NEJ för den och stoppar inte de andra. Översiktsarkets sidor ritas i en egen mapp per fil.
+- **Tillfälliga fel hos Google** (429 och 5xx) försöks igen högst tre gånger (`src/google.js`). 2026-10-19 svarade exporten 500 för en av 63 filer.
+- **Tomma sidor** (niclasfohlin.se K-368): en sida i Google räknas som tom bara när den varken har text eller något annat i textytan, så att ett blad med bara en bild inte larmar.
+- `sidankare` och luftprovets delar (`sektioner`, `sidmatt`, `block`, `bedom`, `STANDARDDRIFT`, `MARGINAL`) exporteras, och proven i `test/luft.test.js` prövar dem utan Word och Google.
+
+Och det som var ej utgivet sedan 0.2.0:
 
 - **Ankarna i jämförelsen med Google** (`ankarsidor` i `src/jamfor.js`): ett ankare hittas överst på en sida uppifrån och ned (`-layout`) eller i läsordning. Uppifrån och ned skriver pdftotext en spalt i marginalen på samma rad som texten bredvid, så att en rubrik och styckets början kommer isär, och i Googles pdf kan marginalens rubrik stå först. I läsordning står de ihop i båda pdf:erna. En ungefärlig träff, nästan alla tecken i en annan ordning, godtas bara högst `NARA` (10) sidor från den sida där ankaret borde stå. Förut kunde en sådan träff långt fram ta sökningen förbi resten av ankarna: i metodriggens kompendium Faktatextsamtal i grupp (281 sidor, marginalens Ord i texten bredvid faktatexterna) hittades 82 av 141 ankare i Word, ett av dem på fel sida, och svaret blev NEJ fast Word och Google hade samma sidor. Nu hittas alla 141 i båda, på samma sidor, och svaret är ok. Temafilen Vulkaner och jordbävningar gick från NEJ till ok på samma sätt. Prövat med tre nya prov i `test/jamfor.test.js` och med 30 jämförelser som riggen hade sparade, gammal och ny version sida vid sida utan uppladdning: de 28 som var ok är ok, och de två falska nej är ok. Från metodriggen 2026-10-19.
 - `ankarsidor` och `NARA` exporteras ur `src/jamfor.js`, så att proven når dem utan Word och Google.

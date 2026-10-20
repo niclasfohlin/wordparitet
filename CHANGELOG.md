@@ -1,5 +1,9 @@
 # Ändringar
 
+## 0.3.4 (2026-10-20)
+
+- **En fil utan block går till Google**: hittar luftprovet inget sidankare har det inte mätt något, och `bedom` svarar `lage: 'google'` med `inga: true` i stället för att filen räknas som att den ryms. niclasfohlin.se:s granskning samma dag: fem blad, en bild med skrivytor och nästan ingen text, gick igenom med "0 block" i varje körning utan att jämföras med Google.
+
 ## 0.3.3 (2026-10-19)
 
 - **Tildet `~` är prövat** och står bland de särskilda tecknen (`SARSKILDA` i `src/regler.js`). Det är tecknet för Lyssnarens takt i metodriggens Högläsning i par, i kompendiet, lathunden och lektionskortet. pdfminer på Words och Googles pdf:er av niclasfohlin.se:s tre Word-filer och riggens kompendium: tildet står i samma typsnitt som texten runt det i båda, Calibri, Calibri kursiv och Arial, så raden blir inte högre. Förut stoppade regeln om tecken som inte är prövade filerna.

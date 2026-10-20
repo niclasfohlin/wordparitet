@@ -17,6 +17,13 @@ test('ett block med mer luft än standarddriften och marginalen ryms', () => {
   assert.equal(r.lage, 'ryms');
 });
 
+test('en fil utan block har inte mätts och går till Google', () => {
+  const r = bedom([]);
+  assert.equal(r.lage, 'google');
+  assert.equal(r.inga, true);
+  assert.equal(r.tranga.length, 0);
+});
+
 test('ett block med mindre luft än standarddriften och marginalen går till Google', () => {
   const r = bedom([{ ankare: 'aaaaaaaa', fran: 0, k: 1, luft: STANDARDDRIFT[1] + MARGINAL - 1 }]);
   assert.equal(r.lage, 'google');

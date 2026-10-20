@@ -144,9 +144,11 @@ export function block(ankare, iWord, matt) {
  * Är blocken trånga? drift är förra jämförelsens uppmätta drift ({ ankare, k, luft, drift }, ur <namn>-drift.json); ett
  * block med samma ankare och längd och nästan samma luft (LIKA_LUFT) får sin uppmätta drift, de andra STANDARDDRIFT.
  * Svarar { lage: 'ryms' | 'google', tranga } där tranga är de trånga blocken, med för lite luft, med driften de räknades
- * med och varifrån den kom.
+ * med och varifrån den kom. En fil utan block (inget sidankare hittades) har inte mätts alls och går till Google, med
+ * tranga tom och inga satt (niclasfohlin.se:s granskning 2026-10-20: fem blad med 0 block räknades som att de rymdes).
  */
 export function bedom(blocken, drift = [], { marginal = MARGINAL } = {}) {
+  if (!blocken.length) return { lage: 'google', tranga: [], inga: true };
   const kand = new Map(drift.map((d) => [`${d.ankare}|${d.k}`, d]));
   const tranga = [];
   for (const b of blocken) {

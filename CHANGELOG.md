@@ -1,5 +1,9 @@
 # Ändringar
 
+## 0.3.5 (2026-10-27)
+
+- **En upprepad rubrikrad räknas i läsordning**: `saknadeTecken` tar läsordningens texter (`{ w, g }`), och `jamforWordGoogle` ger dem. Uppifrån och ned (`-layout`) flätar pdftotext ihop cellerna i en rubrikrad som bryts över två rader, så att raden inte hittades och inte drogs av när Word upprepade den på en sida mer. niclasfohlin.se:s Kortskrivning samma dag: raden "Det eleverna behöver förstå", "Så kan läraren säga" stod fyra gånger i Word och tre i Google, och provet sa att h och ö saknades i Google.
+
 ## 0.3.4 (2026-10-20)
 
 - **En fil utan block går till Google**: hittar luftprovet inget sidankare har det inte mätt något, och `bedom` svarar `lage: 'google'` med `inga: true` i stället för att filen räknas som att den ryms. niclasfohlin.se:s granskning samma dag: fem blad, en bild med skrivytor och nästan ingen text, gick igenom med "0 block" i varje körning utan att jämföras med Google.

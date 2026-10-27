@@ -28,6 +28,17 @@ test('en rubrikrad som Word upprepar en gång mer saknas inte i Google, också m
   assert.ok(saknadeTecken(helW, helG, iFilen({ rubrikrader })).some(([c]) => c === 'b'));
 });
 
+test('en rubrikrad som pdftotext flätar ihop uppifrån och ned räknas i läsordning (Kortskrivning 2026-10-27)', () => {
+  // Uppifrån och ned står cellerna sida vid sida och den första cellens sista ord på nästa rad, i Word två gånger.
+  const helW = 'Det eleverna behöver   Så kan läraren säga\nförstå\nText\n\fDet eleverna behöver   Så kan läraren säga\nförstå\nMer\n';
+  const helG = 'Det eleverna behöver förstå   Så kan läraren säga\nText\nMer\n';
+  const lasordning = { w: 'Det eleverna behöver förstå\nSå kan läraren säga\nText\n\fDet eleverna behöver förstå\nSå kan läraren säga\nMer\n', g: 'Det eleverna behöver förstå\nSå kan läraren säga\nText\nMer\n' };
+  const rubrikrader = [{ bokst: 'detelevernabehöverförstå', siffror: '' }, { bokst: 'såkanlärarensäga', siffror: '' }];
+  assert.deepEqual(saknadeTecken(helW, helG, iFilen({ rubrikrader }), undefined, lasordning), []);
+  // Utan läsordningen hittades den första cellen inte, och bokstäver stod kvar som saknade.
+  assert.ok(saknadeTecken(helW, helG, iFilen({ rubrikrader })).length > 0);
+});
+
 test('text som verkligen saknas i Google syns fortfarande', () => {
   assert.deepEqual(saknadeTecken('Hej på dig\n', 'på dig\n', iFilen()).map(([c]) => c).sort(), ['e', 'h', 'j']);
 });

@@ -138,12 +138,16 @@ export function brutnaOrd(sidorna, iFilen) {
 // Tecknen i Words pdf som saknas i Googles: bokstäver och siffror utan sidnumren. Det som upprepas per sida dras av så
 // många gånger som det står fler gånger i Word: rubrikradernas celler, och de korta cellerna med hela sin rad
 // (kortaRubriker i wordText). Ekvationerna räknas inte, eftersom Google ritar dem utan text i pdf:en. Svarar [tecken, antal].
-export function saknadeTecken(helW, helG, iFilen, sidnummer = SIDNUMMER) {
+// Hur många gånger en rubrikrad står räknas i läsordning, när den ges: uppifrån och ned (-layout) flätar pdftotext ihop
+// cellerna i en rad som bryts över två rader, så att raden inte hittas och inte dras av (niclasfohlin.se 2026-10-27,
+// Kortskrivning: Word upprepade raden "Det eleverna behöver förstå", "Så kan läraren säga", och provet sa att h och ö
+// saknades i Google).
+export function saknadeTecken(helW, helG, iFilen, sidnummer = SIDNUMMER, lasordning) {
   const utanSidnummer = (t) => t.replace(sidnummer, (m) => (m.startsWith('Sida') ? 'Sida av' : ''));
   const iWord = tecken(utanSidnummer(helW));
   const iGoogle = tecken(utanSidnummer(helG));
-  const bokstW = (helW.normalize('NFC').toLowerCase().match(/\p{L}/gu) ?? []).join('');
-  const bokstG = (helG.normalize('NFC').toLowerCase().match(/\p{L}/gu) ?? []).join('');
+  const bokstW = ((lasordning?.w ?? helW).normalize('NFC').toLowerCase().match(/\p{L}/gu) ?? []).join('');
+  const bokstG = ((lasordning?.g ?? helG).normalize('NFC').toLowerCase().match(/\p{L}/gu) ?? []).join('');
   const drag = (extra, tecknen) => { if (extra > 0) for (const c of tecknen) iWord.set(c, (iWord.get(c) ?? 0) - extra); };
   for (const rad of iFilen.rubrikrader) drag(forekomster(bokstW, rad.bokst) - forekomster(bokstG, rad.bokst), rad.bokst + rad.siffror);
   for (const rad of iFilen.kortaRubriker ?? []) drag(forekomster(bokstW, rad.rad) - forekomster(bokstG, rad.rad), rad.bokst + rad.siffror);
@@ -321,7 +325,7 @@ export async function jamforWordGoogle(fil, { ut, mappId, inloggning, igen = fal
   if (w.length !== gs.length) obs.push(`Word ${w.length} sidor, Google ${gs.length}`);
   if (olika.length) obs.push(`${w.length === gs.length ? 'annan text på sidan' : 'första sidan som skiljer sig:'} ${(w.length === gs.length ? olika : olika.slice(0, 1)).join(', ')}`);
   // Texten: bokstäver och siffror i Words pdf som saknas i Googles (saknadeTecken).
-  const saknas = saknadeTecken(pdftext(wPdf), pdftext(gPdf), iFilen, sidnummer);
+  const saknas = saknadeTecken(pdftext(wPdf), pdftext(gPdf), iFilen, sidnummer, { w: pdftext(wPdf, false), g: pdftext(gPdf, false) });
   if (saknas.length) problem.push(`saknas i Google: ${saknas.slice(0, 12).map(([c, d]) => `${c}${d > 1 ? ` ×${d}` : ''}`).join(' ')}${saknas.length > 12 ? ` och ${saknas.length - 12} till` : ''}`);
   const iW = brutnaOrd(sidtexter(wPdf, false), iFilen.ord);
   const iG = brutnaOrd(sidtexter(gPdf, false), iFilen.ord);
